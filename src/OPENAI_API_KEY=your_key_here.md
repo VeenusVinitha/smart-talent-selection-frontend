@@ -1,0 +1,2 @@
+OPENAI_API_KEY=your_key_here
+DATABASE_URL=postgresql://postgres:your_password@localhost:5432/smart_talent_db
