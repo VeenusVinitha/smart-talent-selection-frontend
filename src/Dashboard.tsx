@@ -38,9 +38,6 @@ const Dashboard = () => {
      fetchInitialCandidates();
   }, []);
 
-   useEffect(() => {
-    fetchInitialCandidates();
-  }, [results]);
 
 const handleGenerateRanking = async () => {
   if (!jd.trim()) {
@@ -59,9 +56,11 @@ const handleGenerateRanking = async () => {
     setStatus("Ranking Complete");
     setJd("");
     setStatus(null);
+     fetchInitialCandidates();
   } catch (err) {
     console.error(err);
     setStatus("Ranking Failed");
+  
   } 
   
   finally {
@@ -90,6 +89,7 @@ const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
 
   setStatus("Upload Process Finished");
   setTimeout(() => setStatus(null), 3000);
+  fetchInitialCandidates();
    
 };
 
