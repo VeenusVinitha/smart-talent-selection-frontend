@@ -6,12 +6,18 @@ import { uploadResume, uploadJobDescription } from './services/api';
 import axios from 'axios';
 import './index.css';
 
+interface BackendProfileResponse {
+  filename: string;
+  profile: any; // You can change 'any' to your Profile type if you have one
+}
+
 const Dashboard = () => {
   const [jd, setJd] = useState("");
   const [uploadStatus, setStatus] = useState<string | null>(null);
   const [results, setResults] = useState<any[]>([]);
   const [rankings, setRankings] = useState<any[]>([]); 
   const [isRanking, setIsRanking] = useState(false);
+  const [uploadErrors, setUploadErrors] = useState<{filename: string, error: string}[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
   const dataToPaginate = rankings.length > 0 ? rankings : results;
@@ -67,31 +73,53 @@ const handleGenerateRanking = async () => {
     setIsRanking(false);
   }
 };
-
 const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
 
   if (!e.target.files) return;
   
   const files = Array.from(e.target.files);
   setStatus(`Processing 0/${files.length}...`);
+setUploadErrors([]);
 
   for (let i = 0; i < files.length; i++) {
-    try {
-      setStatus(`Processing ${i + 1}/${files.length}: ${files[i].name}`);
-      const res = await uploadResume(files[i]);
-      setResults(prev => [...prev, res.data.profile]);
-    
-    } catch (err) {
-      console.error(`Failed to upload ${files[i].name}`, err);
-      setStatus("Failed to upload one or more files");
-    }
-  }
+  try {
+    setStatus(`Processing ${i + 1}/${files.length}: ${files[i].name}`);
+    const res = await uploadResume(files[i]);
 
-  setStatus("Upload Process Finished");
-  setTimeout(() => setStatus(null), 3000);
+    // 1. Capture backend-level errors (like unsupported file types)
+    if (res.data.errors && res.data.errors.length > 0) {
+      console.log("Backend rejected file:", res.data.errors);
+      setUploadErrors(prev => [...prev, ...res.data.errors]);
+    }
+
+    // 2. Capture successful profiles
+    if (res.data.profiles && res.data.profiles.length > 0) {
+      // Assuming res.data.profiles is an array of objects like {filename, profile}
+const profiles = res.data.profiles as BackendProfileResponse[];
+const newProfiles = profiles.map(item => item.profile);
+      setResults(prev => [...prev, ...newProfiles]);
+    }
+
+  } catch (err) {
+    // 3. Capture network/server crashes (Status 500, etc.)
+    console.error(`Network error for ${files[i].name}`, err);
+    setUploadErrors(prev => [...prev, { 
+      filename: files[i].name, 
+      error: "Connection error or server crash" 
+    }]);
+  }
+}
+   if(!uploadErrors){
+     setStatus("Upload Process Finished");
+   }
+  setTimeout(() => {
+  setStatus(null);
+  setUploadErrors([]);
+}, 3000);
   fetchInitialCandidates();
    
 };
+
 
   return (
     <div className="flex h-screen bg-[#F9FAFB] font-sans text-slate-900">   
@@ -136,10 +164,20 @@ const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
                 <p className="text-xs text-slate-400 mb-4 px-4">Drag and drop PDF/DOCX files to parse into your database.</p>
                 <label className="cursor-pointer bg-white border border-slate-200 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-all">
                   Browse Files
-                  <input type="file" multiple className="hidden" onChange={handleResumeUpload} />
+                  <input type="file" multiple className="hidden" accept=".pdf,.docx,.jpg,.jpeg,.png" onChange={handleResumeUpload} />
                 </label>
                 {uploadStatus && <p className="mt-2 text-xs font-bold text-blue-600">{uploadStatus}</p>}
               </div>
+		{/* Error List */}
+			{uploadErrors.length > 0 && (
+  <div className="error-container w-full">
+    {uploadErrors.map((err, idx) => (
+      <p key={idx} style={{ color: 'red' }}>
+        ⚠️ {err.filename}: {err.error}
+      </p>
+    ))}
+  </div>
+)}
             </div>
 
             {/* Candidates Table */}
